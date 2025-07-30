@@ -144,17 +144,6 @@ app.get('/api/status/:predictionId', async (req, res) => {
     }
 });                                                                                                                                                                                                                            
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '../../frontend/build')));
@@ -182,6 +171,7 @@ app.listen(PORT, () => {
     console.log(`🎨 Frontend: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
     console.log(`🔑 Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? '✅ Connected' : '❌ Not configured'}`);
     console.log(`🎵 ElevenLabs: ${process.env.ELEVENLABS_API_KEY ? '✅ Connected' : '❌ Not configured'}`);
+    console.log(`🤖 Replicate: ${process.env.REPLICATE_API_TOKEN ? '✅ Connected' : '❌ Not configured'}`);
     console.log('🎭 ================================');
 });
 
