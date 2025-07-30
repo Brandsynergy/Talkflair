@@ -49,39 +49,111 @@ app.post('/api/generate-lipsync', async (req, res) => {
             });
         }
 
-        console.log('🎭 Starting lip-sync generation...');
+        console.log('🎭 Starting REAL AI lip-sync generation...');
         console.log('📸 Image:', imageUrl);
         console.log('🎵 Audio:', audioUrl);
-        console.log('📱 Aspect Ratio:', aspectRatio);
 
-        // TODO: Integrate with Wav2Lip or SadTalker AI models here
-        // For now, return a success response
-        
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        res.json({
-            success: true,
-            message: '🎉 TALKFLAIR video generated successfully!',
-            data: {
-                videoUrl: 'https://example.com/demo-video.mp4', // Replace with actual generated video
-                aspectRatio: aspectRatio,
-                duration: '30s',
-                quality: '720p',
-                processingTime: '2.5s',
-                status: 'completed'
+        // REAL AI INTEGRATION WITH SADTALKER
+        const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+                'Content-Type': 'application/json',
             },
-            note: 'This is a demo response. Connect your AI models to generate real videos!'
+            body: JSON.stringify({
+                version: "3aa3dac9353cc4d6bd62a8f95957bd844003b401ca4e4a9b33baa574c549d376",
+                input: {
+                    source_image: imageUrl,
+                    driven_audio: audioUrl,
+                    enhancer: "gfpgan",
+                    preprocess: "crop"
+                }
+            })
         });
 
+        const prediction = await replicateResponse.json();
+
+        if (replicateResponse.ok) {
+            console.log('✅ AI prediction started:', prediction.id);
+            
+            // Return prediction ID for status checking
+            res.json({
+                success: true,
+                message: '🎭 TALKFLAIR AI is creating your video!',
+                data: {
+                    predictionId: prediction.id,
+                    status: 'processing',
+                    estimatedTime: '30-60 seconds',
+                    aspectRatio: aspectRatio,
+                    quality: '720p'
+                }
+            });
+        } else {
+            throw new Error(`Replicate API error: ${prediction.detail || 'Unknown error'}`);
+        }
+
     } catch (error) {
-        console.error('❌ Lip-sync generation error:', error);
+        console.error('❌ AI generation error:', error);
         res.status(500).json({ 
-            error: 'Generation failed',
+            error: 'AI generation failed',
             message: error.message 
         });
     }
 });
+
+// NEW: Check AI generation status
+app.get('/api/status/:predictionId', async (req, res) => {
+    try {
+        const { predictionId } = req.params;
+        
+        const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+            headers: {
+                'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+            },
+        });
+
+        const prediction = await response.json();
+
+        if (prediction.status === 'succeeded') {
+            res.json({
+                success: true,
+                status: 'completed',
+                videoUrl: prediction.output,
+                message: '🎉 Your TALKFLAIR video is ready!'
+            });
+        } else if (prediction.status === 'failed') {
+            res.json({
+                success: false,
+                status: 'failed',
+                message: 'Video generation failed. Please try again.'
+            });
+        } else {
+            res.json({
+                success: true,
+                status: 'processing',
+                progress: prediction.status === 'starting' ? 10 : 50,
+                message: 'AI is working on your video...'
+            });
+        }
+    } catch (error) {
+        console.error('❌ Status check error:', error);
+        res.status(500).json({ 
+            error: 'Status check failed',
+            message: error.message 
+        });
+    }
+});                                                                                                                                                                                                                            
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
