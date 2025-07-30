@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables (KEEPS YOUR API KEYS SAFE!)
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Temporary files
+temp/
+*/temp/
+uploads/
+
+# Build outputs
+frontend/build/
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# AI model files (too large for GitHub)
+models/Wav2Lip/
+models/SadTalker/
+*.pth
+*.ckpt
+*.pt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Cloudinary temp files
+cloudinary_temp/
+
+# Video processing temp
+video_temp/
+audio_temp/
