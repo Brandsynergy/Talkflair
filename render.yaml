@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: talkflair
+    env: node
+    buildCommand: |
+      npm install
+      cd frontend && npm install && npm run build
+      cd ../backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLOUDINARY_CLOUD_NAME
+        fromGroup: secrets
+      - key: CLOUDINARY_API_KEY
+        fromGroup: secrets
+      - key: CLOUDINARY_API_SECRET
+        fromGroup: secrets
+      - key: ELEVENLABS_API_KEY
+        fromGroup: secrets
