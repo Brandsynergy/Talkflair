@@ -1,0 +1,15 @@
+{
+  "name": "talkflair",
+  "version": "1.0.0",
+  "description": "Professional AI Lip Synchronization App like Hedra Character 3",
+  "scripts": {
+    "start": "./start.sh",
+    "setup": "./setup.sh",
+    "start:frontend": "cd frontend && npm start",
+    "start:backend": "cd backend && npm start",
+    "build": "cd frontend && npm run build"
+  },
+  "keywords": ["lipsync", "ai", "video", "react", "nodejs", "talkflair"],
+  "author": "TALKFLAIR",
+  "license": "MIT"
+}
