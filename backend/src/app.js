@@ -29,7 +29,7 @@ app.get('/api/health', (req, res) => {
             audioUpload: '✅ Ready',
             audioEnhancement: process.env.ELEVENLABS_API_KEY ? '✅ Ready' : '⚠️ Not configured',
             cloudStorage: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Ready' : '⚠️ Not configured',
-            lipSync: '🔄 Ready for AI integration'
+            lipSync: process.env.REPLICATE_API_TOKEN ? '✅ AI Ready' : '⚠️ AI Not configured'
         }
     });
 });
@@ -37,7 +37,7 @@ app.get('/api/health', (req, res) => {
 // Upload routes
 app.use('/api/upload', uploadRoutes);
 
-// Lip-sync generation endpoint
+// REAL AI Lip-sync generation endpoint
 app.post('/api/generate-lipsync', async (req, res) => {
     try {
         const { imageUrl, audioUrl, aspectRatio = '16:9' } = req.body;
@@ -49,9 +49,17 @@ app.post('/api/generate-lipsync', async (req, res) => {
             });
         }
 
+        if (!process.env.REPLICATE_API_TOKEN) {
+            return res.status(500).json({
+                error: 'AI service not configured',
+                message: 'Replicate API token is missing'
+            });
+        }
+
         console.log('🎭 Starting REAL AI lip-sync generation...');
         console.log('📸 Image:', imageUrl);
         console.log('🎵 Audio:', audioUrl);
+        console.log('🎬 Aspect Ratio:', aspectRatio);
 
         // REAL AI INTEGRATION WITH SADTALKER
         const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
@@ -76,7 +84,6 @@ app.post('/api/generate-lipsync', async (req, res) => {
         if (replicateResponse.ok) {
             console.log('✅ AI prediction started:', prediction.id);
             
-            // Return prediction ID for status checking
             res.json({
                 success: true,
                 message: '🎭 TALKFLAIR AI is creating your video!',
@@ -89,6 +96,7 @@ app.post('/api/generate-lipsync', async (req, res) => {
                 }
             });
         } else {
+            console.error('❌ Replicate API error:', prediction);
             throw new Error(`Replicate API error: ${prediction.detail || 'Unknown error'}`);
         }
 
@@ -101,11 +109,18 @@ app.post('/api/generate-lipsync', async (req, res) => {
     }
 });
 
-// NEW: Check AI generation status
+// Check AI generation status
 app.get('/api/status/:predictionId', async (req, res) => {
     try {
         const { predictionId } = req.params;
         
+        if (!process.env.REPLICATE_API_TOKEN) {
+            return res.status(500).json({
+                error: 'AI service not configured',
+                message: 'Replicate API token is missing'
+            });
+        }
+
         const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
             headers: {
                 'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
@@ -125,7 +140,8 @@ app.get('/api/status/:predictionId', async (req, res) => {
             res.json({
                 success: false,
                 status: 'failed',
-                message: 'Video generation failed. Please try again.'
+                message: 'Video generation failed. Please try again.',
+                error: prediction.error
             });
         } else {
             res.json({
@@ -142,8 +158,8 @@ app.get('/api/status/:predictionId', async (req, res) => {
             message: error.message 
         });
     }
-});                                                                                                                                                                                                                            
-  
+});
+
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '../../frontend/build')));
@@ -175,6 +191,12 @@ app.listen(PORT, () => {
     console.log('🎭 ================================');
 });
 
-module.exports = app;                                        
+module.exports = app;                                                                                                                                                               
+  
+  
+  
+  
+  
+  
   
   
