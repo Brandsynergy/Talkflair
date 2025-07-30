@@ -9,9 +9,12 @@ import {
     Button,
     Alert,
     Snackbar,
-    Paper
+    Paper,
+    LinearProgress,
+    Card,
+    CardMedia
 } from '@mui/material';
-import { VideoCall, AutoAwesome, Upload, CloudUpload } from '@mui/icons-material';
+import { VideoCall, AutoAwesome, Upload, CloudUpload, Download } from '@mui/icons-material';
 
 // TALKFLAIR Dark Theme
 const talkflairTheme = createTheme({
@@ -72,12 +75,59 @@ function App() {
     const [processing, setProcessing] = useState(false);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
+    const [progress, setProgress] = useState(0);
+    const [videoUrl, setVideoUrl] = useState('');
+    const [predictionId, setPredictionId] = useState('');
 
     const handleFileUpload = (type, file) => {
         if (type === 'image') {
             setImageFile(file);
         } else {
             setAudioFile(file);
+        }
+    };
+
+    const uploadFile = async (file, type) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to upload ${type}`);
+        }
+
+        const data = await response.json();
+        return data.url;
+    };
+
+    const checkStatus = async (predictionId) => {
+        try {
+            const response = await fetch(`/api/status/${predictionId}`);
+            const data = await response.json();
+
+            if (data.status === 'completed') {
+                setVideoUrl(data.videoUrl);
+                setSuccess('🎉 Your TALKFLAIR video is ready!');
+                setProcessing(false);
+                setProgress(100);
+            } else if (data.status === 'failed') {
+                setError('Video generation failed. Please try again.');
+                setProcessing(false);
+                setProgress(0);
+            } else {
+                // Still processing
+                setProgress(data.progress || 50);
+                setTimeout(() => checkStatus(predictionId), 3000); // Check again in 3 seconds
+            }
+        } catch (err) {
+            setError('Failed to check video status');
+            setProcessing(false);
+            setProgress(0);
         }
     };
 
@@ -89,14 +139,58 @@ function App() {
 
         setProcessing(true);
         setError('');
+        setSuccess('');
+        setVideoUrl('');
+        setProgress(10);
 
         try {
-            // This will connect to your backend API
-            setSuccess('TALKFLAIR is processing your video! (This is a demo - connect your backend)');
+            // Upload files first
+            setProgress(20);
+            const imageUrl = await uploadFile(imageFile, 'image');
+            
+            setProgress(40);
+            const audioUrl = await uploadFile(audioFile, 'audio');
+
+            // Generate lip-sync video
+            setProgress(50);
+            const response = await fetch('/api/generate-lipsync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    imageUrl,
+                    audioUrl,
+                    aspectRatio: '16:9'
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setPredictionId(data.data.predictionId);
+                setSuccess('🎭 TALKFLAIR AI is creating your video!');
+                setProgress(60);
+                
+                // Start checking status
+                setTimeout(() => checkStatus(data.data.predictionId), 5000);
+            } else {
+                throw new Error(data.message || 'Generation failed');
+            }
+
         } catch (err) {
-            setError('Processing failed. Please try again.');
-        } finally {
+            setError(`Processing failed: ${err.message}`);
             setProcessing(false);
+            setProgress(0);
+        }
+    };
+
+    const downloadVideo = () => {
+        if (videoUrl) {
+            const link = document.createElement('a');
+            link.href = videoUrl;
+            link.download = 'talkflair-video.mp4';
+            link.click();
         }
     };
 
@@ -119,7 +213,7 @@ function App() {
                             Professional AI Lip Synchronization
                         </Typography>
                         <Typography variant="body1" color="text.secondary">
-                            Create amazing lip-sync videos like Hedra Character 3
+                            Create amazing lip-sync videos with real AI power
                         </Typography>
                     </Box>
 
@@ -181,6 +275,62 @@ function App() {
                             )}
                         </Box>
                     </Paper>
+
+                    {/* Progress Bar */}
+                    {processing && (
+                        <Paper sx={{ p: 3, mb: 4, backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                            <Typography variant="h6" sx={{ mb: 2, textAlign: 'center' }}>
+                                🎭 AI is Creating Your Video...
+                            </Typography>
+                            <LinearProgress 
+                                variant="determinate" 
+                                value={progress} 
+                                sx={{ 
+                                    height: 8, 
+                                    borderRadius: 4,
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    '& .MuiLinearProgress-bar': {
+                                        background: 'linear-gradient(45deg, #FF6B6B 30%, #4ECDC4 90%)',
+                                    }
+                                }} 
+                            />
+                            <Typography variant="body2" sx={{ mt: 1, textAlign: 'center' }}>
+                                {progress}% Complete
+                            </Typography>
+                        </Paper>
+                    )}
+
+                    {/* Video Result */}
+                    {videoUrl && (
+                        <Paper sx={{ p: 4, mb: 4, backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                            <Typography variant="h6" sx={{ mb: 3, textAlign: 'center' }}>
+                                🎉 Your TALKFLAIR Video is Ready!
+                            </Typography>
+                            <Card sx={{ maxWidth: 600, mx: 'auto', mb: 3 }}>
+                                <CardMedia
+                                    component="video"
+                                    controls
+                                    src={videoUrl}
+                                    sx={{ width: '100%', height: 'auto' }}
+                                />
+                            </Card>
+                            <Box sx={{ textAlign: 'center' }}>
+                                <Button
+                                    variant="contained"
+                                    onClick={downloadVideo}
+                                    startIcon={<Download />}
+                                    sx={{
+                                        background: 'linear-gradient(45deg, #FF6B6B 30%, #4ECDC4 90%)',
+                                        '&:hover': {
+                                            background: 'linear-gradient(45deg, #E53935 30%, #26A69A 90%)',
+                                        }
+                                    }}
+                                >
+                                    Download Video
+                                </Button>
+                            </Box>
+                        </Paper>
+                    )}
 
                     {/* Generate Button */}
                     <Box sx={{ textAlign: 'center', mb: 4 }}>
@@ -250,4 +400,9 @@ function App() {
     );
 }
 
-export default App;
+export default App;                                                                                                    
+  
+  
+  
+  
+  
