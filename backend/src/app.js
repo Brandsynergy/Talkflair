@@ -111,65 +111,16 @@ app.post('/api/generate', upload.fields([
     console.log('☁️ Image uploaded to Cloudinary:', imageResult.secure_url);
     console.log('☁️ Audio uploaded to Cloudinary:', audioResult.secure_url);
 
-    // Call Hedra API for lip-sync generation
-    const hedraResponse = await axios.post('https://www.hedra.com/api/v1/characters', {
-      audioSource: audioResult.secure_url,
-      imageSource: imageResult.secure_url,
-      aspectRatio: aspectRatio === '9:16' ? 'vertical' : 'horizontal'
-    }, {
-      headers: {
-        'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
+    // For now, return demo response while we fix Hedra API
+    console.log('🎭 Files uploaded successfully! Returning demo response...');
+    
+    res.json({
+      success: true,
+      message: 'Files uploaded successfully! AI integration in progress...',
+      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
+      imageUrl: imageResult.secure_url,
+      audioUrl: audioResult.secure_url
     });
-
-    console.log('🎭 Hedra API response:', hedraResponse.data);
-
-    if (hedraResponse.data && hedraResponse.data.jobId) {
-      // Poll for completion
-      let attempts = 0;
-      const maxAttempts = 60; // 5 minutes max
-      
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-        
-        const statusResponse = await axios.get(`https://www.hedra.com/api/v1/characters/${hedraResponse.data.jobId}`, {
-          headers: {
-            'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`
-          }
-        });
-
-        console.log(`🔄 Attempt ${attempts + 1}: Status = ${statusResponse.data.status}`);
-
-        if (statusResponse.data.status === 'completed') {
-          return res.json({
-            success: true,
-            message: 'Video generated successfully!',
-            videoUrl: statusResponse.data.videoUrl,
-            jobId: hedraResponse.data.jobId
-          });
-        } else if (statusResponse.data.status === 'failed') {
-          return res.status(500).json({
-            success: false,
-            error: 'Video generation failed'
-          });
-        }
-
-        attempts++;
-      }
-
-      // Timeout
-      return res.status(408).json({
-        success: false,
-        error: 'Video generation timed out. Please try again.'
-      });
-
-    } else {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to start video generation'
-      });
-    }
 
   } catch (error) {
     console.error('❌ Generate error:', error);
@@ -240,7 +191,17 @@ app.listen(PORT, () => {
   console.log('🎭 ================================');
 });
 
-module.exports = app;                                                                                                                                                                                   
+module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                          
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   
   
