@@ -229,15 +229,18 @@ app.use((error, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-    console.log('🎭 ================================');
+   console.log('🎭 ================================');
     console.log('🎭 TALKFLAIR Backend Started!');
     console.log('🎭 ================================');
-    console.log(`🌐 Server: http://localhost:${PORT}`);
-    console.log(`🎨 Frontend: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
-    console.log(`🔑 Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? '✅ Connected' : '❌ Not configured'}`);
-    console.log(`🎵 ElevenLabs: ${process.env.ELEVENLABS_API_KEY ? '✅ Connected' : '❌ Not configured'}`);
-    console.log(`🤖 Replicate: ${process.env.REPLICATE_API_TOKEN ? '✅ Connected' : '❌ Not configured'}`);
-    console.log('🎭 ================================');
+    console.log('🌐 Server: http://localhost:' + PORT);
+    console.log('🎨 Frontend: http://localhost:3000');
+    console.log('🔑 Cloudinary: ' + (process.env.CLOUDINARY_CLOUD_NAME ? '✅ Connected' : '❌ Not configured'));
+    console.log('🎵 ElevenLabs: ' + (process.env.ELEVENLABS_API_KEY ? '✅ Connected' : '❌ Not configured'));
+    console.log('🎭 Hedra Character-2: ' + (process.env.HEDRA_API_KEY ? '✅ Connected' : '❌ Not configured'));
+    console.log('🎭 ================================');                                                            
+  
+  
+  
 });
 
 module.exports = app;                                                                                                                                                               
