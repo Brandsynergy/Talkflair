@@ -150,7 +150,13 @@ app.get('/api/status/:jobId', async (req, res) => {
             message: error.message
         });
     }
-});                                                                                                                                                                                    
+});                                                                                                                                                                                                                                                                                                           
+  
+  
+  
+  
+  
+  
   
 // Check AI generation status
 app.get('/api/status/:predictionId', async (req, res) => {
