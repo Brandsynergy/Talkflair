@@ -1,7 +1,7 @@
 {
   "name": "talkflair-backend",
-  "version": "1.0.0",
-  "description": "TALKFLAIR Backend API",
+  "version": "2.0.0",
+  "description": "TALKFLAIR AI Lip-Sync Backend",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
@@ -10,12 +10,36 @@
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
     "multer": "^1.4.5-lts.1",
     "cloudinary": "^1.41.0",
-    "node-fetch": "^2.7.0"
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
-}                    
+}                                                                                                                                                                                                       
+  
+  
+  
+  
+  
+  
+  
+  
+  
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
+                      
                       
                       
                       
