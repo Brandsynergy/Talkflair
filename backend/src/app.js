@@ -111,16 +111,36 @@ app.post('/api/generate', upload.fields([
     console.log('☁️ Image uploaded to Cloudinary:', imageResult.secure_url);
     console.log('☁️ Audio uploaded to Cloudinary:', audioResult.secure_url);
 
-    // For now, return demo response while we fix Hedra API
-    console.log('🎭 Files uploaded successfully! Returning demo response...');
+   // Call Hedra API for real lip-sync generation
+console.log('🎭 Calling Hedra API for lip-sync generation...');
+
+const hedraResponse = await axios.post('https://api.hedra.com/v1/characters', {
+  audioSource: audioResult.secure_url,
+  imageSource: imageResult.secure_url,
+  aspectRatio: aspectRatio === '9:16' ? 'vertical' : 'horizontal'
+}, {
+  headers: {
+    'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+console.log('🎭 Hedra API response:', hedraResponse.data);
+
+if (hedraResponse.data && hedraResponse.data.jobId) {
+  res.json({
+    success: true,
+    message: 'AI is generating your lip-sync video... This may take 2-5 minutes.',
+    jobId: hedraResponse.data.jobId,
+    status: 'processing'
+  });
+} else {
+  res.json({
+    success: false,
+    error: 'Failed to start video generation'
+  });
+}                                                                                                                                                                
     
-    res.json({
-      success: true,
-      message: 'Files uploaded successfully! AI integration in progress...',
-      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
-      imageUrl: imageResult.secure_url,
-      audioUrl: audioResult.secure_url
-    });
 
   } catch (error) {
     console.error('❌ Generate error:', error);
