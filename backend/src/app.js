@@ -61,54 +61,97 @@ app.post('/api/generate-lipsync', async (req, res) => {
         console.log('🎵 Audio:', audioUrl);
         console.log('🎬 Aspect Ratio:', aspectRatio);
 
-        // REAL AI INTEGRATION WITH SADTALKER
-        const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+   // Generate lip-sync video with HEDRA API
+app.post('/api/generate', async (req, res) => {
+    try {
+        const { imageUrl, audioUrl, aspectRatio } = req.body;
+
+        console.log('🎭 Starting HEDRA AI lip-sync generation...');
+        console.log('📸 Image:', imageUrl);
+        console.log('🎵 Audio:', audioUrl);
+        console.log('🎬 Aspect Ratio:', aspectRatio);
+
+        // Create Hedra generation request
+        const hedraResponse = await fetch('https://mercury.dev.hedra.com/api/v1/characters', {
             method: 'POST',
             headers: {
-                'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
+                'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                version: "3aa3dac9353cc4d6bd62a8f95957bd844003b401ca4e4a9b33baa574c549d376",
-                input: {
-                    source_image: imageUrl,
-                    driven_audio: audioUrl,
-                    enhancer: "gfpgan",
-                    preprocess: "crop"
-                }
+                audioSource: audioUrl,
+                imageSource: imageUrl,
+                voiceEmbedding: "premade",
+                aspectRatio: aspectRatio === '16:9' ? '16:9' : '9:16'
             })
         });
 
-        const prediction = await replicateResponse.json();
-
-        if (replicateResponse.ok) {
-            console.log('✅ AI prediction started:', prediction.id);
-            
-            res.json({
-                success: true,
-                message: '🎭 TALKFLAIR AI is creating your video!',
-                data: {
-                    predictionId: prediction.id,
-                    status: 'processing',
-                    estimatedTime: '30-60 seconds',
-                    aspectRatio: aspectRatio,
-                    quality: '720p'
-                }
-            });
-        } else {
-            console.error('❌ Replicate API error:', prediction);
-            throw new Error(`Replicate API error: ${prediction.detail || 'Unknown error'}`);
+        if (!hedraResponse.ok) {
+            const errorData = await hedraResponse.json();
+            console.error('❌ Hedra API error:', errorData);
+            throw new Error(`Hedra API error: ${errorData.message || 'Unknown error'}`);
         }
 
+        const hedraData = await hedraResponse.json();
+        console.log('✅ Hedra generation started:', hedraData.jobId);
+
+        res.json({
+            success: true,
+            jobId: hedraData.jobId,
+            message: 'HEDRA AI generation started successfully!'
+        });
+
     } catch (error) {
-        console.error('❌ AI generation error:', error);
-        res.status(500).json({ 
-            error: 'AI generation failed',
-            message: error.message 
+        console.error('❌ HEDRA generation error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Generation failed',
+            message: error.message
         });
     }
 });
 
+// Check HEDRA generation status
+app.get('/api/status/:jobId', async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        console.log('🔍 Checking HEDRA status for:', jobId);
+
+        const statusResponse = await fetch(`https://mercury.dev.hedra.com/api/v1/characters/${jobId}`, {
+            headers: {
+                'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`,
+            }
+        });
+
+        if (!statusResponse.ok) {
+            throw new Error('Failed to check status');
+        }
+
+        const statusData = await statusResponse.json();
+        console.log('📊 HEDRA Status:', statusData.status);
+
+        if (statusData.status === 'completed') {
+            console.log('🎉 HEDRA generation completed!');
+            console.log('🎬 Video URL:', statusData.videoUrl);
+        }
+
+        res.json({
+            status: statusData.status,
+            videoUrl: statusData.videoUrl,
+            progress: statusData.status === 'completed' ? 100 : 
+                     statusData.status === 'processing' ? 75 : 
+                     statusData.status === 'queued' ? 25 : 0
+        });
+
+    } catch (error) {
+        console.error('❌ Status check error:', error);
+        res.status(500).json({
+            error: 'Status check failed',
+            message: error.message
+        });
+    }
+});                                                                                                                                                                                    
+  
 // Check AI generation status
 app.get('/api/status/:predictionId', async (req, res) => {
     try {
