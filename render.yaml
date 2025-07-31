@@ -4,30 +4,9 @@ services:
     env: node
     plan: free
     buildCommand: npm install && cd frontend && npm install && npm run build && cd ../backend && npm install
-    startCommand: cd backend && npm start
-    staticPublishPath: ./frontend/build
-    routes:
-      - type: rewrite
-        source: /api/*
-        destination: /api/*
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: CLOUDINARY_CLOUD_NAME
-        fromService: talkflair
-        fromEnvVar: CLOUDINARY_CLOUD_NAME
-      - key: CLOUDINARY_API_KEY
-        fromService: talkflair
-        fromEnvVar: CLOUDINARY_API_KEY
-      - key: CLOUDINARY_API_SECRET
-        fromService: talkflair
-        fromEnvVar: CLOUDINARY_API_SECRET
-      - key: ELEVENLABS_API_KEY
-        fromService: talkflair
-        fromEnvVar: ELEVENLABS_API_KEY
-      - key: HEDRA_API_KEY
-        fromService: talkflair
-        fromEnvVar: HEDRA_API_KEY
+    startCommand: cd backend && npm start                                                                                                  
+  
+  
+  
+  
+  
