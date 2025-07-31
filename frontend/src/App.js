@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 
 function App() {
   const [image, setImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [audio, setAudio] = useState(null);
+  const [audioFile, setAudioFile] = useState(null);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -14,6 +16,7 @@ function App() {
     if (file) {
       const url = URL.createObjectURL(file);
       setImage(url);
+      setImageFile(file);
       setMessage('✅ Image uploaded successfully!');
     }
   };
@@ -23,32 +26,68 @@ function App() {
     if (file) {
       const url = URL.createObjectURL(file);
       setAudio(url);
+      setAudioFile(file);
       setMessage('✅ Audio uploaded successfully!');
     }
   };
 
-  const handleGenerate = () => {
-    if (!image || !audio) {
+  const handleGenerate = async () => {
+    if (!imageFile || !audioFile) {
       setMessage('❌ Please upload both image and audio files');
       return;
     }
 
     setIsGenerating(true);
     setProgress(0);
-    setMessage('🚀 Starting AI generation...');
+    setMessage('🚀 Uploading files to AI...');
 
-    // Simulate progress
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsGenerating(false);
-          setMessage('🎉 Demo complete! Backend integration coming soon...');
-          return 100;
-        }
-        return prev + 10;
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      formData.append('audio', audioFile);
+      formData.append('aspectRatio', aspectRatio);
+
+      // Start progress simulation
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev < 90) return prev + 10;
+          return prev;
+        });
+      }, 2000);
+
+      setMessage('🎭 AI is generating your lip-sync video...');
+
+      // Call real backend
+      const response = await fetch('https://talkflair-backend.onrender.com/api/generate', {
+        method: 'POST',
+        body: formData
       });
-    }, 500);
+
+      const data = await response.json();
+      clearInterval(progressInterval);
+
+      if (data.success) {
+        setProgress(100);
+        setResultVideo(data.videoUrl);
+        setMessage('🎉 Video generated successfully! Click to download.');
+      } else {
+        setMessage('❌ Generation failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      setMessage('❌ Error: ' + error.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const downloadVideo = () => {
+    if (resultVideo) {
+      const link = document.createElement('a');
+      link.href = resultVideo;
+      link.download = 'talkflair-video.mp4';
+      link.click();
+    }
   };
 
   const appStyle = {
@@ -199,11 +238,11 @@ function App() {
 
           <button 
             onClick={handleGenerate}
-            disabled={!image || !audio || isGenerating}
+            disabled={!imageFile || !audioFile || isGenerating}
             style={{
               ...buttonStyle,
-              opacity: (!image || !audio || isGenerating) ? 0.6 : 1,
-              cursor: (!image || !audio || isGenerating) ? 'not-allowed' : 'pointer'
+              opacity: (!imageFile || !audioFile || isGenerating) ? 0.6 : 1,
+              cursor: (!imageFile || !audioFile || isGenerating) ? 'not-allowed' : 'pointer'
             }}
           >
             {isGenerating ? '⏳ Generating...' : '🚀 Generate Video'}
@@ -219,6 +258,24 @@ function App() {
           </div>
         )}
 
+        {resultVideo && (
+          <div style={{margin: '30px 0', padding: '20px', background: '#2d2d2d', borderRadius: '10px'}}>
+            <h3 style={{color: '#4ecdc4'}}>🎉 Your Video is Ready!</h3>
+            <video 
+              src={resultVideo} 
+              controls 
+              style={{width: '100%', maxWidth: '400px', borderRadius: '10px'}}
+            />
+            <br />
+            <button 
+              onClick={downloadVideo}
+              style={{...buttonStyle, marginTop: '15px'}}
+            >
+              📥 Download Video
+            </button>
+          </div>
+        )}
+
         <div style={messageStyle}>
           <p style={{margin: 0}}>{message}</p>
         </div>
@@ -227,7 +284,12 @@ function App() {
   );
 }
 
-export default App;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+export default App;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+  
+  
+  
+  
+  
   
   
   
