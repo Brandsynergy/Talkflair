@@ -151,13 +151,7 @@ app.get('/api/status/:jobId', async (req, res) => {
         });
     }
 });                                                                                                                                                                                                                                                                                                           
-  
-  
-  
-  
-  
-  
-  
+    
 // Check AI generation status
 app.get('/api/status/:predictionId', async (req, res) => {
     try {
@@ -238,9 +232,7 @@ app.listen(PORT, () => {
     console.log('🎵 ElevenLabs: ' + (process.env.ELEVENLABS_API_KEY ? '✅ Connected' : '❌ Not configured'));
     console.log('🎭 Hedra Character-2: ' + (process.env.HEDRA_API_KEY ? '✅ Connected' : '❌ Not configured'));
     console.log('🎭 ================================');                                                            
-  
-  
-  
+    
 });
 
 module.exports = app;                                                                                                                                                               
