@@ -151,7 +151,7 @@ app.post('/api/generate', upload.fields([
 
       // Poll for completion
       let attempts = 0;
-      const maxAttempts = 24; // 2 minutes max (5 seconds * 24)
+      const maxAttempts = 60; // 5 minutes max (5 seconds * 60)
 
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
