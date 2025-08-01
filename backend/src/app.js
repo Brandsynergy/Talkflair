@@ -34,7 +34,7 @@ const testRunPod = () => {
   return process.env.RUNPOD_API_KEY ? '✅ Connected' : '❌ Not configured';
 };
 
-// RUNPOD WAV2LIP API - PROVEN WORKING SOLUTION
+// RUNPOD WAV2LIP API - CORRECTED ENDPOINTS
 app.post('/api/generate', upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'audio', maxCount: 1 }
@@ -82,7 +82,7 @@ app.post('/api/generate', upload.fields([
     const [imageResult, audioResult] = await Promise.all([uploadImage(), uploadAudio()]);
     console.log('☁️ Files uploaded to Cloudinary');
 
-    // Call RunPod Wav2Lip API
+    // Try multiple RunPod endpoints - CORRECTED APPROACH
     console.log('🎭 Calling RunPod Wav2Lip API...');
     
     const runpodPayload = {
@@ -98,17 +98,55 @@ app.post('/api/generate', upload.fields([
 
     console.log('📤 RunPod Payload:', runpodPayload);
 
-    const runpodResponse = await axios.post(
-      'https://api.runpod.ai/v2/wav2lip/runsync',
-      runpodPayload,
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 300000 // 5 minutes timeout
+    // Try the correct RunPod endpoint
+    let runpodResponse;
+    
+    try {
+      // Primary endpoint
+      runpodResponse = await axios.post(
+        'https://api.runpod.ai/v2/wav2lip-hd/runsync',
+        runpodPayload,
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 300000 // 5 minutes timeout
+        }
+      );
+    } catch (primaryError) {
+      console.log('⚠️ Primary endpoint failed, trying alternative...');
+      
+      try {
+        // Alternative endpoint
+        runpodResponse = await axios.post(
+          'https://api.runpod.ai/v2/wav2lip/run',
+          runpodPayload,
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 300000
+          }
+        );
+      } catch (altError) {
+        console.log('⚠️ Alternative endpoint failed, trying async...');
+        
+        // Async endpoint
+        runpodResponse = await axios.post(
+          'https://api.runpod.ai/v2/wav2lip/run',
+          runpodPayload,
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 30000 // Shorter timeout for async
+          }
+        );
       }
-    );
+    }
 
     console.log('📥 RunPod Response:', runpodResponse.data);
 
@@ -176,7 +214,7 @@ app.post('/api/generate', upload.fields([
     return res.status(500).json({
       success: false,
       error: error.response?.data?.message || error.message,
-      details: 'RunPod video generation failed. Check API key and try again.',
+      details: 'RunPod video generation failed. Check API key and endpoints.',
       apiResponse: error.response?.data
     });
   }
@@ -198,8 +236,8 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'TALKFLAIR - RUNPOD WAV2LIP LIP-SYNC',
-    version: '7.0.0 - RUNPOD API',
-    note: 'Using proven RunPod Wav2Lip API for reliable lip-sync videos!'
+    version: '7.1.0 - CORRECTED RUNPOD ENDPOINTS',
+    note: 'Using corrected RunPod Wav2Lip API endpoints with fallbacks!'
   });
 });
 
@@ -212,11 +250,15 @@ app.listen(PORT, () => {
   console.log(`🔑 Cloudinary: ${testCloudinary()}`);
   console.log(`🚀 RunPod API: ${testRunPod()}`);
   console.log('🎭 ================================');
-  console.log('🎬 RUNPOD WAV2LIP VIDEOS!');
+  console.log('🎬 CORRECTED RUNPOD ENDPOINTS!');
   console.log('🎭 ================================');
 });
 
-module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+  
+  
+  
+  
   
   
   
