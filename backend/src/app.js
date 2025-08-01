@@ -3,7 +3,6 @@ const cors = require('cors');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const axios = require('axios');
-const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -20,50 +19,30 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configure multer for file uploads
-const storage = multer.memoryStorage();
+// Configure multer
 const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
-  }
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }
 });
 
-// Test Cloudinary connection
+// Test connections
 const testCloudinary = () => {
-  try {
-    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
-      return '✅ Connected';
-    } else {
-      return '❌ Not configured';
-    }
-  } catch (error) {
-    return '❌ Error: ' + error.message;
-  }
+  return process.env.CLOUDINARY_CLOUD_NAME ? '✅ Connected' : '❌ Not configured';
 };
 
-// Test VisionStory connection
 const testVisionStory = () => {
-  try {
-    if (process.env.VISIONSTORY_API_KEY) {
-      return '✅ Connected';
-    } else {
-      return '❌ Not configured';
-    }
-  } catch (error) {
-    return '❌ Error: ' + error.message;
-  }
+  return process.env.VISIONSTORY_API_KEY ? '✅ Connected' : '❌ Not configured';
 };
 
-// INSTANT RESPONSE - NO MORE WAITING!
+// REAL AI VIDEO GENERATION - NO MORE FAKE RESPONSES!
 app.post('/api/generate', upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'audio', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    console.log('🚀 Generate request received');
+    console.log('🚀 REAL AI Generation Started');
     
-    if (!req.files || !req.files.image || !req.files.audio) {
+    if (!req.files?.image || !req.files?.audio) {
       return res.status(400).json({
         success: false,
         error: 'Both image and audio files are required'
@@ -74,88 +53,44 @@ app.post('/api/generate', upload.fields([
     const imageFile = req.files.image[0];
     const audioFile = req.files.audio[0];
 
-    console.log('📸 Image uploaded:', imageFile.originalname);
-    console.log('🎵 Audio uploaded:', audioFile.originalname);
-    console.log('🎬 Aspect ratio:', aspectRatio);
+    console.log('📸 Processing:', imageFile.originalname);
+    console.log('🎵 Processing:', audioFile.originalname);
 
-    // Upload image to Cloudinary
-    const imageUpload = new Promise((resolve, reject) => {
+    // Check VisionStory API key
+    if (!process.env.VISIONSTORY_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: 'VisionStory API key not configured. Please add VISIONSTORY_API_KEY to environment variables.'
+      });
+    }
+
+    // Upload files to Cloudinary
+    const uploadImage = () => new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'image',
-          folder: 'talkflair/images'
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
+        { resource_type: 'image', folder: 'talkflair/images' },
+        (error, result) => error ? reject(error) : resolve(result)
       ).end(imageFile.buffer);
     });
 
-    // Upload audio to Cloudinary
-    const audioUpload = new Promise((resolve, reject) => {
+    const uploadAudio = () => new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'video',
-          folder: 'talkflair/audio'
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
+        { resource_type: 'video', folder: 'talkflair/audio' },
+        (error, result) => error ? reject(error) : resolve(result)
       ).end(audioFile.buffer);
     });
 
-    const [imageResult, audioResult] = await Promise.all([imageUpload, audioUpload]);
+    const [imageResult, audioResult] = await Promise.all([uploadImage(), uploadAudio()]);
+    console.log('☁️ Files uploaded to Cloudinary');
 
-    console.log('☁️ Image uploaded to Cloudinary:', imageResult.secure_url);
-    console.log('☁️ Audio uploaded to Cloudinary:', audioResult.secure_url);
-
-    // INSTANT SUCCESS RESPONSE - NO WAITING!
-    console.log('🎉 INSTANT SUCCESS - Files processed successfully!');
+    // Call VisionStory AI - REAL API CALL
+    const audioBase64 = audioFile.buffer.toString('base64');
     
-    res.json({
-      success: true,
-      message: 'Your files have been uploaded successfully! TALKFLAIR is working perfectly!',
-      videoUrl: imageResult.secure_url, // Show the uploaded image as preview
-      imageUrl: imageResult.secure_url,
-      audioUrl: audioResult.secure_url,
-      status: 'completed',
-      note: 'Your TALKFLAIR infrastructure is fully operational! 🎭✨'
-    });
-
-    // Optional: Try AI processing in background (won't affect user experience)
-    processAIInBackground(imageResult.secure_url, audioResult.secure_url, aspectRatio, audioFile.buffer);
-
-  } catch (error) {
-    console.error('❌ Generate error:', error);
-    
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Background AI processing (optional - doesn't block user)
-async function processAIInBackground(imageUrl, audioUrl, aspectRatio, audioBuffer) {
-  try {
-    console.log('🎭 Starting optional background AI processing...');
-    
-    // Only try if VisionStory API key exists
-    if (!process.env.VISIONSTORY_API_KEY) {
-      console.log('⚠️ VisionStory API key not configured - skipping AI processing');
-      return;
-    }
-
-    const audioBase64 = audioBuffer.toString('base64');
-    
-    const payload = {
+    const visionStoryPayload = {
       model_id: 'vs_talk_v1',
       avatar_id: '4321918387609092991',
       audio_script: {
         inline_data: {
-          mime_type: 'audio/mp3',
+          mime_type: audioFile.mimetype || 'audio/mp3',
           data: audioBase64
         },
         voice_change: false,
@@ -165,32 +100,83 @@ async function processAIInBackground(imageUrl, audioUrl, aspectRatio, audioBuffe
       resolution: '720p'
     };
 
-    const response = await axios.post(
+    console.log('🎭 Calling VisionStory AI...');
+    
+    const aiResponse = await axios.post(
       'https://openapi.visionstory.ai/api/v1/video',
-      payload,
+      visionStoryPayload,
       {
         headers: {
           'X-API-Key': process.env.VISIONSTORY_API_KEY,
           'Content-Type': 'application/json'
         },
-        timeout: 10000 // 10 second timeout for API call
+        timeout: 30000
       }
     );
 
-    console.log('🎭 Background AI request submitted successfully:', response.data);
-    
-  } catch (error) {
-    console.log('⚠️ Background AI processing failed (this is OK):', error.message);
-    // Don't throw error - this is background processing
-  }
-}
+    if (!aiResponse.data?.data?.video_id) {
+      throw new Error('Failed to start AI video generation');
+    }
 
-// Health check route
+    const videoId = aiResponse.data.data.video_id;
+    console.log('🎬 AI processing started, Video ID:', videoId);
+
+    // Poll for completion - REAL VIDEO GENERATION
+    let attempts = 0;
+    const maxAttempts = 60; // 10 minutes max
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+      
+      const statusResponse = await axios.get(
+        'https://openapi.visionstory.ai/api/v1/video',
+        {
+          params: { video_id: videoId },
+          headers: { 'X-API-Key': process.env.VISIONSTORY_API_KEY }
+        }
+      );
+
+      const status = statusResponse.data?.data?.status;
+      console.log(`🔄 Attempt ${attempts + 1}: ${status}`);
+
+      if (status === 'created') {
+        const videoUrl = statusResponse.data.data.video_url;
+        console.log('🎉 REAL VIDEO GENERATED:', videoUrl);
+        
+        return res.json({
+          success: true,
+          message: 'Real AI lip-sync video generated successfully!',
+          videoUrl: videoUrl,
+          videoId: videoId,
+          imageUrl: imageResult.secure_url,
+          audioUrl: audioResult.secure_url
+        });
+      } else if (status === 'failed') {
+        throw new Error('AI video generation failed');
+      }
+
+      attempts++;
+    }
+
+    // Timeout
+    throw new Error('AI video generation timed out after 10 minutes');
+
+  } catch (error) {
+    console.error('❌ Generation error:', error);
+    
+    return res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message,
+      details: 'Real AI video generation failed. Check API key and try again.'
+    });
+  }
+});
+
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
-    message: 'TALKFLAIR Backend is running perfectly!',
-    timestamp: new Date().toISOString(),
+    message: 'TALKFLAIR - REAL AI VIDEO GENERATION',
     services: {
       cloudinary: testCloudinary(),
       visionStory: testVisionStory()
@@ -201,44 +187,30 @@ app.get('/api/health', (req, res) => {
 // Root route
 app.get('/', (req, res) => {
   res.json({
-    message: 'TALKFLAIR Backend API - NO MORE FRUSTRATION!',
-    version: '4.0.0 - INSTANT RESPONSE',
-    endpoints: {
-      health: '/api/health',
-      generate: '/api/generate (POST) - ALWAYS WORKS!'
-    },
-    services: {
-      cloudinary: testCloudinary(),
-      visionStory: testVisionStory()
-    }
-  });
-});
-
-// Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('🚨 Global error:', error);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: 'Something went wrong with TALKFLAIR'
+    message: 'TALKFLAIR - REAL AI LIP-SYNC VIDEOS',
+    version: '5.0.0 - REAL AI',
+    note: 'This version generates REAL lip-sync videos, not fake responses!'
   });
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log('🎭 ================================');
-  console.log('🎭 TALKFLAIR Backend Started!');
-  console.log('🎭 NO MORE FRUSTRATION VERSION!');
+  console.log('🎭 TALKFLAIR - REAL AI VERSION!');
   console.log('🎭 ================================');
   console.log(`🌐 Server: http://localhost:${PORT}`);
-  console.log(`🎨 Frontend: http://localhost:3000`);
   console.log(`🔑 Cloudinary: ${testCloudinary()}`);
   console.log(`🎭 VisionStory AI: ${testVisionStory()}`);
   console.log('🎭 ================================');
-  console.log('🎉 INSTANT RESPONSES GUARANTEED!');
+  console.log('🎬 REAL LIP-SYNC VIDEOS ONLY!');
   console.log('🎭 ================================');
 });
 
-module.exports = app;                                                                                                                                                                                                                                                                    
+module.exports = app;                                                                                                                                                                                                                                                                                                                                                   
+  
+  
+  
+  
   
   
   
