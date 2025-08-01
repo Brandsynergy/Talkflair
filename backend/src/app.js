@@ -34,7 +34,7 @@ const testHedra = () => {
   return process.env.HEDRA_API_KEY ? '✅ Connected' : '❌ Not configured';
 };
 
-// HEDRA CHARACTER-2 API - REAL LIP-SYNC GENERATION
+// HEDRA CHARACTER-2 API - CORRECTED VERSION
 app.post('/api/generate', upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'audio', maxCount: 1 }
@@ -82,30 +82,33 @@ app.post('/api/generate', upload.fields([
     const [imageResult, audioResult] = await Promise.all([uploadImage(), uploadAudio()]);
     console.log('☁️ Files uploaded to Cloudinary');
 
-    // Call Hedra Character-2 API
-    console.log('🎭 Calling Hedra Character-2 API...');
+    // Call Hedra API - CORRECTED ENDPOINT
+    console.log('🎭 Calling Hedra API...');
     
     const hedraPayload = {
-      type: "tts",
-      input_image: imageResult.secure_url,
-      input_audio: audioResult.secure_url,
-      aspect_ratio: aspectRatio === '9:16' ? '9:16' : '16:9'
+      audioSource: audioResult.secure_url,
+      imageSource: imageResult.secure_url,
+      aspectRatio: aspectRatio === '9:16' ? 'vertical' : 'horizontal'
     };
 
+    console.log('📤 Hedra Payload:', hedraPayload);
+
     const hedraResponse = await axios.post(
-      'https://mercury.dev.dream-ai.com/api/v1/characters',
+      'https://www.hedra.com/api/v1/portrait',
       hedraPayload,
       {
         headers: {
-          'X-API-Key': process.env.HEDRA_API_KEY,
+          'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`,
           'Content-Type': 'application/json'
         },
         timeout: 30000
       }
     );
 
+    console.log('📥 Hedra Response:', hedraResponse.data);
+
     if (!hedraResponse.data?.jobId) {
-      throw new Error('Failed to start Hedra video generation');
+      throw new Error('Failed to start Hedra video generation - no jobId returned');
     }
 
     const jobId = hedraResponse.data.jobId;
@@ -113,35 +116,42 @@ app.post('/api/generate', upload.fields([
 
     // Poll for completion
     let attempts = 0;
-    const maxAttempts = 30; // 5 minutes max (10 seconds * 30)
+    const maxAttempts = 30; // 5 minutes max
     
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
       
-      const statusResponse = await axios.get(
-        `https://mercury.dev.dream-ai.com/api/v1/characters/${jobId}`,
-        {
-          headers: { 'X-API-Key': process.env.HEDRA_API_KEY }
+      try {
+        const statusResponse = await axios.get(
+          `https://www.hedra.com/api/v1/portrait/${jobId}`,
+          {
+            headers: { 
+              'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`
+            }
+          }
+        );
+
+        const status = statusResponse.data?.status;
+        console.log(`🔄 Attempt ${attempts + 1}: ${status}`);
+
+        if (status === 'completed' || status === 'success') {
+          const videoUrl = statusResponse.data.videoUrl || statusResponse.data.resultUrl;
+          console.log('🎉 HEDRA VIDEO GENERATED:', videoUrl);
+          
+          return res.json({
+            success: true,
+            message: 'Hedra lip-sync video generated successfully!',
+            videoUrl: videoUrl,
+            jobId: jobId,
+            imageUrl: imageResult.secure_url,
+            audioUrl: audioResult.secure_url
+          });
+        } else if (status === 'failed' || status === 'error') {
+          throw new Error(`Hedra video generation failed: ${statusResponse.data.error || 'Unknown error'}`);
         }
-      );
 
-      const status = statusResponse.data?.status;
-      console.log(`🔄 Attempt ${attempts + 1}: ${status}`);
-
-      if (status === 'completed') {
-        const videoUrl = statusResponse.data.videoUrl;
-        console.log('🎉 HEDRA VIDEO GENERATED:', videoUrl);
-        
-        return res.json({
-          success: true,
-          message: 'Hedra lip-sync video generated successfully!',
-          videoUrl: videoUrl,
-          jobId: jobId,
-          imageUrl: imageResult.secure_url,
-          audioUrl: audioResult.secure_url
-        });
-      } else if (status === 'failed') {
-        throw new Error('Hedra video generation failed');
+      } catch (pollError) {
+        console.log(`⚠️ Polling attempt ${attempts + 1} failed:`, pollError.message);
       }
 
       attempts++;
@@ -152,11 +162,13 @@ app.post('/api/generate', upload.fields([
 
   } catch (error) {
     console.error('❌ Hedra Generation error:', error);
+    console.error('❌ Error details:', error.response?.data);
     
     return res.status(500).json({
       success: false,
       error: error.response?.data?.message || error.message,
-      details: 'Hedra video generation failed. Check API key and try again.'
+      details: 'Hedra video generation failed. Check API key and endpoint.',
+      apiResponse: error.response?.data
     });
   }
 });
@@ -177,8 +189,8 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'TALKFLAIR - HEDRA CHARACTER-2 LIP-SYNC',
-    version: '6.0.0 - HEDRA API',
-    note: 'Using proven Hedra Character-2 API for reliable lip-sync videos!'
+    version: '6.1.0 - CORRECTED HEDRA API',
+    note: 'Using corrected Hedra Character-2 API endpoints!'
   });
 });
 
@@ -191,11 +203,15 @@ app.listen(PORT, () => {
   console.log(`🔑 Cloudinary: ${testCloudinary()}`);
   console.log(`🎭 Hedra API: ${testHedra()}`);
   console.log('🎭 ================================');
-  console.log('🎬 HEDRA LIP-SYNC VIDEOS!');
+  console.log('🎬 CORRECTED HEDRA ENDPOINTS!');
   console.log('🎭 ================================');
 });
 
-module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+  
+  
+  
+  
   
   
   
