@@ -30,17 +30,17 @@ const testCloudinary = () => {
   return process.env.CLOUDINARY_CLOUD_NAME ? '✅ Connected' : '❌ Not configured';
 };
 
-const testHedra = () => {
-  return process.env.HEDRA_API_KEY ? '✅ Connected' : '❌ Not configured';
+const testRunPod = () => {
+  return process.env.RUNPOD_API_KEY ? '✅ Connected' : '❌ Not configured';
 };
 
-// HEDRA CHARACTER-2 API - CORRECTED VERSION
+// RUNPOD WAV2LIP API - PROVEN WORKING SOLUTION
 app.post('/api/generate', upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'audio', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    console.log('🎭 HEDRA Generation Started');
+    console.log('🚀 RunPod Wav2Lip Generation Started');
     
     if (!req.files?.image || !req.files?.audio) {
       return res.status(400).json({
@@ -56,11 +56,11 @@ app.post('/api/generate', upload.fields([
     console.log('📸 Processing:', imageFile.originalname);
     console.log('🎵 Processing:', audioFile.originalname);
 
-    // Check Hedra API key
-    if (!process.env.HEDRA_API_KEY) {
+    // Check RunPod API key
+    if (!process.env.RUNPOD_API_KEY) {
       return res.status(500).json({
         success: false,
-        error: 'Hedra API key not configured. Please add HEDRA_API_KEY to environment variables.'
+        error: 'RunPod API key not configured. Please add RUNPOD_API_KEY to environment variables.'
       });
     }
 
@@ -82,92 +82,101 @@ app.post('/api/generate', upload.fields([
     const [imageResult, audioResult] = await Promise.all([uploadImage(), uploadAudio()]);
     console.log('☁️ Files uploaded to Cloudinary');
 
-    // Call Hedra API - CORRECTED ENDPOINT
-    console.log('🎭 Calling Hedra API...');
+    // Call RunPod Wav2Lip API
+    console.log('🎭 Calling RunPod Wav2Lip API...');
     
-    const hedraPayload = {
-      audioSource: audioResult.secure_url,
-      imageSource: imageResult.secure_url,
-      aspectRatio: aspectRatio === '9:16' ? 'vertical' : 'horizontal'
+    const runpodPayload = {
+      input: {
+        face: imageResult.secure_url,
+        audio: audioResult.secure_url,
+        pads: [0, 10, 0, 0],
+        face_restore: true,
+        face_enhance: true,
+        hd: true
+      }
     };
 
-    console.log('📤 Hedra Payload:', hedraPayload);
+    console.log('📤 RunPod Payload:', runpodPayload);
 
-    const hedraResponse = await axios.post(
-      'https://www.hedra.com/api/v1/portrait',
-      hedraPayload,
+    const runpodResponse = await axios.post(
+      'https://api.runpod.ai/v2/wav2lip/runsync',
+      runpodPayload,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`,
+          'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 300000 // 5 minutes timeout
       }
     );
 
-    console.log('📥 Hedra Response:', hedraResponse.data);
+    console.log('📥 RunPod Response:', runpodResponse.data);
 
-    if (!hedraResponse.data?.jobId) {
-      throw new Error('Failed to start Hedra video generation - no jobId returned');
-    }
-
-    const jobId = hedraResponse.data.jobId;
-    console.log('🎬 Hedra processing started, Job ID:', jobId);
-
-    // Poll for completion
-    let attempts = 0;
-    const maxAttempts = 30; // 5 minutes max
-    
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+    if (runpodResponse.data?.status === 'COMPLETED') {
+      const videoUrl = runpodResponse.data.output;
+      console.log('🎉 RUNPOD VIDEO GENERATED:', videoUrl);
       
-      try {
+      return res.json({
+        success: true,
+        message: 'RunPod Wav2Lip video generated successfully!',
+        videoUrl: videoUrl,
+        imageUrl: imageResult.secure_url,
+        audioUrl: audioResult.secure_url
+      });
+    } else if (runpodResponse.data?.status === 'FAILED') {
+      throw new Error(`RunPod generation failed: ${runpodResponse.data.error}`);
+    } else {
+      // Handle async processing
+      const jobId = runpodResponse.data.id;
+      console.log('🔄 RunPod job started:', jobId);
+      
+      // Poll for completion
+      let attempts = 0;
+      const maxAttempts = 30; // 5 minutes max
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+        
         const statusResponse = await axios.get(
-          `https://www.hedra.com/api/v1/portrait/${jobId}`,
+          `https://api.runpod.ai/v2/wav2lip/status/${jobId}`,
           {
-            headers: { 
-              'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`
-            }
+            headers: { 'Authorization': `Bearer ${process.env.RUNPOD_API_KEY}` }
           }
         );
 
         const status = statusResponse.data?.status;
         console.log(`🔄 Attempt ${attempts + 1}: ${status}`);
 
-        if (status === 'completed' || status === 'success') {
-          const videoUrl = statusResponse.data.videoUrl || statusResponse.data.resultUrl;
-          console.log('🎉 HEDRA VIDEO GENERATED:', videoUrl);
+        if (status === 'COMPLETED') {
+          const videoUrl = statusResponse.data.output;
+          console.log('🎉 RUNPOD VIDEO GENERATED:', videoUrl);
           
           return res.json({
             success: true,
-            message: 'Hedra lip-sync video generated successfully!',
+            message: 'RunPod Wav2Lip video generated successfully!',
             videoUrl: videoUrl,
             jobId: jobId,
             imageUrl: imageResult.secure_url,
             audioUrl: audioResult.secure_url
           });
-        } else if (status === 'failed' || status === 'error') {
-          throw new Error(`Hedra video generation failed: ${statusResponse.data.error || 'Unknown error'}`);
+        } else if (status === 'FAILED') {
+          throw new Error(`RunPod generation failed: ${statusResponse.data.error}`);
         }
 
-      } catch (pollError) {
-        console.log(`⚠️ Polling attempt ${attempts + 1} failed:`, pollError.message);
+        attempts++;
       }
 
-      attempts++;
+      throw new Error('RunPod generation timed out after 5 minutes');
     }
 
-    // Timeout
-    throw new Error('Hedra video generation timed out after 5 minutes');
-
   } catch (error) {
-    console.error('❌ Hedra Generation error:', error);
+    console.error('❌ RunPod Generation error:', error);
     console.error('❌ Error details:', error.response?.data);
     
     return res.status(500).json({
       success: false,
       error: error.response?.data?.message || error.message,
-      details: 'Hedra video generation failed. Check API key and endpoint.',
+      details: 'RunPod video generation failed. Check API key and try again.',
       apiResponse: error.response?.data
     });
   }
@@ -177,10 +186,10 @@ app.post('/api/generate', upload.fields([
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
-    message: 'TALKFLAIR - HEDRA CHARACTER-2 API',
+    message: 'TALKFLAIR - RUNPOD WAV2LIP API',
     services: {
       cloudinary: testCloudinary(),
-      hedra: testHedra()
+      runpod: testRunPod()
     }
   });
 });
@@ -188,26 +197,30 @@ app.get('/api/health', (req, res) => {
 // Root route
 app.get('/', (req, res) => {
   res.json({
-    message: 'TALKFLAIR - HEDRA CHARACTER-2 LIP-SYNC',
-    version: '6.1.0 - CORRECTED HEDRA API',
-    note: 'Using corrected Hedra Character-2 API endpoints!'
+    message: 'TALKFLAIR - RUNPOD WAV2LIP LIP-SYNC',
+    version: '7.0.0 - RUNPOD API',
+    note: 'Using proven RunPod Wav2Lip API for reliable lip-sync videos!'
   });
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log('🎭 ================================');
-  console.log('🎭 TALKFLAIR - HEDRA VERSION!');
+  console.log('🎭 TALKFLAIR - RUNPOD VERSION!');
   console.log('🎭 ================================');
   console.log(`🌐 Server: http://localhost:${PORT}`);
   console.log(`🔑 Cloudinary: ${testCloudinary()}`);
-  console.log(`🎭 Hedra API: ${testHedra()}`);
+  console.log(`🚀 RunPod API: ${testRunPod()}`);
   console.log('🎭 ================================');
-  console.log('🎬 CORRECTED HEDRA ENDPOINTS!');
+  console.log('🎬 RUNPOD WAV2LIP VIDEOS!');
   console.log('🎭 ================================');
 });
 
-module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+  
+  
+  
+  
   
   
   
