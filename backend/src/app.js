@@ -149,48 +149,49 @@ app.post('/api/generate', upload.fields([
     if (visionStoryResponse.data && visionStoryResponse.data.data && visionStoryResponse.data.data.video_id) {
       const videoId = visionStoryResponse.data.data.video_id;
 
-      // Poll for completion
-      let attempts = 0;
-      const maxAttempts = 60; // 5 minutes max (5 seconds * 60)
+      // Poll for completion with longer timeout
+let attempts = 0;
+const maxAttempts = 60; // 5 minutes max
+const pollInterval = 10000; // 10 seconds between checks
 
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+while (attempts < maxAttempts) {
+  await new Promise(resolve => setTimeout(resolve, pollInterval));
 
-        const statusResponse = await axios.get(
-          'https://openapi.visionstory.ai/api/v1/video',
-          {
-            params: { video_id: videoId },
-            headers: {
-              'X-API-Key': process.env.VISIONSTORY_API_KEY
-            }
-          }
-        );
-
-        console.log(`🔄 Attempt ${attempts + 1}: Status = ${statusResponse.data.data.status}`);
-
-        if (statusResponse.data.data.status === 'created') {
-          return res.json({
-            success: true,
-            message: 'Video generated successfully!',
-            videoUrl: statusResponse.data.data.video_url,
-            videoId: videoId
-          });
-        } else if (statusResponse.data.data.status === 'failed') {
-          return res.status(500).json({
-            success: false,
-            error: 'Video generation failed'
-          });
-        }
-
-        attempts++;
+  const statusResponse = await axios.get(
+    'https://openapi.visionstory.ai/api/v1/video',
+    {
+      params: { video_id: videoId },
+      headers: {
+        'X-API-Key': process.env.VISIONSTORY_API_KEY
       }
+    }
+  );
 
-      // Timeout
-      return res.status(408).json({
-        success: false,
-        error: 'Video generation timed out. Please try again.'
-      });
+  console.log(`🔄 Attempt ${attempts + 1}: Status = ${statusResponse.data.data.status}`);
 
+  if (statusResponse.data.data.status === 'created') {
+    return res.json({
+      success: true,
+      message: 'Video generated successfully!',
+      videoUrl: statusResponse.data.data.video_url,
+      videoId: videoId
+    });
+  } else if (statusResponse.data.data.status === 'failed') {
+    return res.status(500).json({
+      success: false,
+      error: 'Video generation failed'
+    });
+  }
+
+  attempts++;
+}
+
+// Timeout after 10 minutes
+return res.status(408).json({
+  success: false,
+  error: 'Video generation timed out after 10 minutes. Please try again with shorter audio.'
+});                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+  
     } else {
       return res.status(500).json({
         success: false,
