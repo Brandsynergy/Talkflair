@@ -42,10 +42,10 @@ const testCloudinary = () => {
   }
 };
 
-// Test Hedra connection
-const testHedra = () => {
+// Test VisionStory connection
+const testVisionStory = () => {
   try {
-    if (process.env.HEDRA_API_KEY) {
+    if (process.env.VISIONSTORY_API_KEY) {
       return '✅ Connected';
     } else {
       return '❌ Not configured';
@@ -111,36 +111,92 @@ app.post('/api/generate', upload.fields([
     console.log('☁️ Image uploaded to Cloudinary:', imageResult.secure_url);
     console.log('☁️ Audio uploaded to Cloudinary:', audioResult.secure_url);
 
-   // Call Hedra API for real lip-sync generation
-console.log('🎭 Calling Hedra API for lip-sync generation...');
+    // Call VisionStory AI for real lip-sync generation
+    console.log('🎭 Calling VisionStory AI for lip-sync generation...');
 
-const hedraResponse = await axios.post('https://api.hedra.com/v1/characters', {
-  audioSource: audioResult.secure_url,
-  imageSource: imageResult.secure_url,
-  aspectRatio: aspectRatio === '9:16' ? 'vertical' : 'horizontal'
-}, {
-  headers: {
-    'Authorization': `Bearer ${process.env.HEDRA_API_KEY}`,
-    'Content-Type': 'application/json'
-  }
-});
+    // Convert audio file to base64
+    const audioBase64 = audioFile.buffer.toString('base64');
 
-console.log('🎭 Hedra API response:', hedraResponse.data);
+    const visionStoryPayload = {
+      model_id: 'vs_talk_v1',
+      avatar_id: '4321918387609092991', // Default avatar - can be customized
+      audio_script: {
+        inline_data: {
+          mime_type: 'audio/mp3',
+          data: audioBase64
+        },
+        voice_change: false, // Keep original voice
+        denoise: true
+      },
+      aspect_ratio: aspectRatio === '9:16' ? '9:16' : '16:9',
+      resolution: '720p',
+      background_color: '#000000'
+    };
 
-if (hedraResponse.data && hedraResponse.data.jobId) {
-  res.json({
-    success: true,
-    message: 'AI is generating your lip-sync video... This may take 2-5 minutes.',
-    jobId: hedraResponse.data.jobId,
-    status: 'processing'
-  });
-} else {
-  res.json({
-    success: false,
-    error: 'Failed to start video generation'
-  });
-}                                                                                                                                                                
-    
+    const visionStoryResponse = await axios.post(
+      'https://openapi.visionstory.ai/api/v1/video',
+      visionStoryPayload,
+      {
+        headers: {
+          'X-API-Key': process.env.VISIONSTORY_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('🎭 VisionStory API response:', visionStoryResponse.data);
+
+    if (visionStoryResponse.data && visionStoryResponse.data.data && visionStoryResponse.data.data.video_id) {
+      const videoId = visionStoryResponse.data.data.video_id;
+
+      // Poll for completion
+      let attempts = 0;
+      const maxAttempts = 24; // 2 minutes max (5 seconds * 24)
+
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+
+        const statusResponse = await axios.get(
+          'https://openapi.visionstory.ai/api/v1/video',
+          {
+            params: { video_id: videoId },
+            headers: {
+              'X-API-Key': process.env.VISIONSTORY_API_KEY
+            }
+          }
+        );
+
+        console.log(`🔄 Attempt ${attempts + 1}: Status = ${statusResponse.data.data.status}`);
+
+        if (statusResponse.data.data.status === 'created') {
+          return res.json({
+            success: true,
+            message: 'Video generated successfully!',
+            videoUrl: statusResponse.data.data.video_url,
+            videoId: videoId
+          });
+        } else if (statusResponse.data.data.status === 'failed') {
+          return res.status(500).json({
+            success: false,
+            error: 'Video generation failed'
+          });
+        }
+
+        attempts++;
+      }
+
+      // Timeout
+      return res.status(408).json({
+        success: false,
+        error: 'Video generation timed out. Please try again.'
+      });
+
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to start video generation'
+      });
+    }
 
   } catch (error) {
     console.error('❌ Generate error:', error);
@@ -168,7 +224,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     services: {
       cloudinary: testCloudinary(),
-      hedra: testHedra()
+      visionStory: testVisionStory()
     }
   });
 });
@@ -177,14 +233,14 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'TALKFLAIR Backend API',
-    version: '2.0.0',
+    version: '3.0.0',
     endpoints: {
       health: '/api/health',
       generate: '/api/generate (POST)'
     },
     services: {
       cloudinary: testCloudinary(),
-      hedra: testHedra()
+      visionStory: testVisionStory()
     }
   });
 });
@@ -206,12 +262,15 @@ app.listen(PORT, () => {
   console.log(`🌐 Server: http://localhost:${PORT}`);
   console.log(`🎨 Frontend: http://localhost:3000`);
   console.log(`🔑 Cloudinary: ${testCloudinary()}`);
-  console.log(`🎵 ElevenLabs: ❌ Not configured`);
-  console.log(`🎭 Hedra Character-2: ${testHedra()}`);
+  console.log(`🎭 VisionStory AI: ${testVisionStory()}`);
   console.log('🎭 ================================');
 });
 
-module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                          
+module.exports = app;                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+  
+  
+  
+  
   
   
   
